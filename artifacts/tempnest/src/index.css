@@ -128,10 +128,19 @@
   }
 }
 
-/* Hide Clerk's "Development mode" badge across versions */
+/* Hide Clerk's "Development mode" badge/notice across all versions */
 [class*="cl-internal-"][class*="badge"],
+[class*="cl-devMode"],
+[class*="cl-developmentMode"],
+[class*="cl-badge"],
+[class*="cl-tagline"],
 .cl-internal-1d5bpac,
 .cl-internal-b3fm6y,
 .cl-internal-1b3fm6y {
+  display: none !important;
+}
+/* Global catch-all for the floating "Development mode" bar */
+div[data-localization-key="badge__devMode"],
+a[href*="clerk.com/docs/deployments"] {
   display: none !important;
 }

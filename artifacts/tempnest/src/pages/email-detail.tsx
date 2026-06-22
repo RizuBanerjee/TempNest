@@ -10,59 +10,59 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Copy, Check, Key, Mail, Clock, Shield } from "lucide-react";
 
-function processHtmlForDisplay(html: string): string {
-  // Add target="_blank" and rel="noopener noreferrer" to all links
-  // Ensure links are styled and clickable
-  let processed = html.replace(
-    /<a\s+([^>]*)href="([^"]*)"([^>]*)>/gi,
-    '<a $1href="$2"$3 target="_blank" rel="noopener noreferrer">'
-  );
-  // Add inline style to ensure text selection works
-  processed = processed.replace(
-    /<body/i,
-    '<body style="user-select:text;cursor:auto;"'
-  );
-  return processed;
+function buildIframeContent(html: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_blank">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #ffffff;
+    margin: 0;
+    padding: 16px;
+    user-select: text;
+    cursor: auto;
+    overflow-x: hidden;
+  }
+  img { max-width: 100%; height: auto; }
+  a { color: #7c3aed; text-decoration: underline; cursor: pointer; }
+  a:hover { color: #6d28d9; }
+  table { max-width: 100% !important; width: 100% !important; }
+</style>
+</head>
+<body>${html}</body>
+</html>`;
 }
 
 export default function EmailDetail({ params }: { params: { id: string } }) {
   const id = params.id;
   const [otpCopied, setOtpCopied] = useState(false);
-  const [bodyHtml, setBodyHtml] = useState<string | null>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const [bodyCopied, setBodyCopied] = useState(false);
+  const [iframeHeight, setIframeHeight] = useState(400);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const queryClient = useQueryClient();
 
   const { data: email, isLoading } = useGetEmail(id);
   const markRead = useMarkEmailRead();
   const extractOtp = useExtractEmailOtp(id);
 
-  // Lazily fetch full HTML body if only preview is available
-  useEffect(() => {
-    if (!email) return;
-    if (email.bodyHtml) {
-      setBodyHtml(processHtmlForDisplay(email.bodyHtml));
-      return;
-    }
-    // If only text available, use text display
-    if (!email.bodyHtml && email.bodyText) {
-      setBodyHtml(null);
-    }
-  }, [email?.id, email?.bodyHtml]);
-
-  // Post-process rendered HTML to ensure links are clickable
-  useEffect(() => {
-    if (!bodyRef.current) return;
-    const links = bodyRef.current.querySelectorAll("a");
-    links.forEach((a) => {
-      if (!a.getAttribute("target")) {
-        a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener noreferrer");
+  // Auto-resize iframe to content height
+  const handleIframeLoad = () => {
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (doc) {
+        const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 200);
+        setIframeHeight(height + 32);
       }
-      a.style.color = "hsl(260, 80%, 65%)";
-      a.style.textDecoration = "underline";
-      a.style.cursor = "pointer";
-    });
-  }, [bodyHtml, email?.bodyHtml]);
+    } catch (_) {}
+  };
 
   useEffect(() => {
     if (email && !email.isRead) {
@@ -75,6 +75,14 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
     setOtpCopied(true);
     setTimeout(() => setOtpCopied(false), 2000);
     toast.success("OTP copied to clipboard");
+  }
+
+  function copyBodyText() {
+    const text = email?.bodyText || "";
+    navigator.clipboard.writeText(text);
+    setBodyCopied(true);
+    setTimeout(() => setBodyCopied(false), 2000);
+    toast.success("Email text copied");
   }
 
   async function handleExtractOtp() {
@@ -92,8 +100,6 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
   }
 
   const otp = email?.otpCode || (extractOtp.data?.found ? extractOtp.data.code : null);
-  const displayBody = bodyHtml || email?.bodyHtml || null;
-  const displayText = email?.bodyText || null;
 
   return (
     <MainLayout>
@@ -199,16 +205,32 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-border/60 bg-card p-6">
-              {displayBody ? (
-                <div
-                  ref={bodyRef}
-                  className="prose prose-sm dark:prose-invert max-w-none email-body"
-                  style={{ userSelect: "text", cursor: "auto" }}
-                  dangerouslySetInnerHTML={{ __html: displayBody }}
+            <div className="rounded-xl border border-border/60 bg-white overflow-hidden">
+              {/* Toolbar */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/30">
+                <span className="text-xs text-muted-foreground font-medium">Message</span>
+                <Button variant="ghost" size="sm" onClick={copyBodyText} className="h-7 gap-1.5 text-xs">
+                  {bodyCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                  {bodyCopied ? "Copied!" : "Copy text"}
+                </Button>
+              </div>
+
+              {email?.bodyHtml ? (
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={buildIframeContent(email.bodyHtml)}
+                  sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                  onLoad={handleIframeLoad}
+                  style={{ width: "100%", height: `${iframeHeight}px`, border: "none", display: "block" }}
+                  title="Email content"
                 />
-              ) : displayText ? (
-                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed" style={{ userSelect: "text" }}>{displayText}</pre>
+              ) : email?.bodyText ? (
+                <pre
+                  className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed p-6"
+                  style={{ userSelect: "text", cursor: "auto" }}
+                >
+                  {email.bodyText}
+                </pre>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Mail size={32} className="mx-auto mb-3 opacity-30" />

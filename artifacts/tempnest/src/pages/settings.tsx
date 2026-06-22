@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, CreditCard, Shield, Bell, Palette } from "lucide-react";
+import { User, CreditCard, Shield, Bell, Palette, ShieldAlert } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { Link } from "wouter";
 
@@ -23,6 +23,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { user: clerkUser } = useUser();
   const [name, setName] = useState("");
+  const [claimingAdmin, setClaimingAdmin] = useState(false);
 
   useEffect(() => {
     if (user?.name && !name) {
@@ -30,7 +31,24 @@ export default function Settings() {
     }
   }, [user?.name]);
 
-  const displayEmail = user?.email || clerkUser?.emailAddresses?.[0]?.emailAddress || "";
+  const displayEmail = clerkUser?.emailAddresses?.[0]?.emailAddress || user?.email || "";
+
+  async function handleClaimAdmin() {
+    setClaimingAdmin(true);
+    try {
+      const res = await fetch("/api/admin/claim", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed");
+      }
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast.success("Admin access granted! Reload the page to see admin menu.");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not claim admin access");
+    } finally {
+      setClaimingAdmin(false);
+    }
+  }
 
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
@@ -233,6 +251,28 @@ export default function Settings() {
               </div>
             )}
           </Card>
+
+          {/* Admin Access */}
+          {!user?.isAdmin && (
+            <Card className="p-6 bg-card border-border/60 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldAlert size={16} className="text-amber-400" />
+                <h2 className="font-semibold">Admin Access</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                If you are the platform owner, you can claim admin rights here. This only works if no admin exists yet.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleClaimAdmin}
+                disabled={claimingAdmin}
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+              >
+                <ShieldAlert size={14} className="mr-2" />
+                {claimingAdmin ? "Claiming..." : "Claim Admin Access"}
+              </Button>
+            </Card>
+          )}
         </div>
       </div>
     </MainLayout>

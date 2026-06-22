@@ -5,7 +5,7 @@ import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { getAuth } from "@clerk/express";
 import {
   getDomains, createAccount, getToken, deleteAccount,
-  getMessages, generatePassword, generateUsername, extractOtp
+  getMessages, getMessage, generatePassword, generateUsername, extractOtp
 } from "../lib/mailtm";
 
 const router = Router();
@@ -198,14 +198,23 @@ router.post("/:inboxId/refresh", requireAuth, async (req, res) => {
 
       for (const msg of messages) {
         if (existingIds.has(msg.id)) continue;
-        const bodyText = msg.text || msg.intro || "";
+
+        // Fetch the full message to get HTML body (list endpoint only has intro/preview)
+        let fullMsg = msg;
+        try {
+          const fetched = await getMessage(token, msg.id);
+          if (fetched) fullMsg = fetched;
+        } catch (_) {}
+
+        const bodyText = fullMsg.text || fullMsg.intro || msg.text || msg.intro || "";
+        const bodyHtml = fullMsg.html?.[0] || msg.html?.[0] || null;
         const otpCode = extractOtp(bodyText);
 
         await db.insert(emailsTable).values({
           id: msg.id, inboxId: inbox.id, userId: user.id,
           fromAddress: msg.from.address, subject: msg.subject || "(no subject)",
           preview: (msg.intro || bodyText || "").substring(0, 200),
-          bodyText, bodyHtml: msg.html?.[0] || null,
+          bodyText, bodyHtml,
           isRead: false, hasOtp: !!otpCode, otpCode,
           receivedAt: new Date(msg.createdAt),
         }).onConflictDoNothing();

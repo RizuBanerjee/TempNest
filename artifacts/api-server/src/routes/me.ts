@@ -15,10 +15,14 @@ router.get("/", requireAuth, async (req, res) => {
 
     const user = await getOrCreateUser(clerkId, email, name);
 
-    // Daily credit refill logic
+    // Daily credit refill logic:
+    // - Use lastRefillAt if set; fall back to createdAt for existing users without it.
+    // - This prevents new users from getting an immediate refill (their lastRefillAt is set at creation).
+    // - Old users with null lastRefillAt will refill once createdAt is 24h+ in the past.
     const now = new Date();
-    const lastRefill = user.lastRefillAt;
-    const shouldRefill = !lastRefill || (now.getTime() - lastRefill.getTime()) >= 24 * 60 * 60 * 1000;
+    const refillBasis = user.lastRefillAt || user.createdAt;
+    const hoursSince = (now.getTime() - refillBasis.getTime()) / (1000 * 60 * 60);
+    const shouldRefill = hoursSince >= 24;
 
     if (shouldRefill && user.credits < user.maxCredits) {
       const newCredits = Math.min(user.credits + user.dailyRefill, user.maxCredits);

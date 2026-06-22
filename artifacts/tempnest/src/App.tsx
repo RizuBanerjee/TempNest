@@ -97,9 +97,14 @@ const clerkAppearance = {
     identityPreviewText: "text-foreground",
     identityPreviewEditButtonIcon: "text-muted-foreground",
     footer: "hidden",
+    badge: "hidden",
+    tagline: "hidden",
     "cl-internal-1d5bpac": "hidden",
     "cl-internal-b3fm6y": "hidden",
     "cl-internal-1b3fm6y": "hidden",
+    "cl-devModeNotice": "hidden",
+    "cl-devMode": "hidden",
+    "cl-developmentMode": "hidden",
   }
 };
 

@@ -41,6 +41,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { href: "/admin/revenue", label: "Revenue", icon: BarChart2 },
   ];
 
+  // Prefer DB display name over Clerk's name
+  const displayName = dbUser?.name || user?.fullName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+  const displayEmail = user?.emailAddresses?.[0]?.emailAddress || dbUser?.email || "";
+
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex">
       {/* Sidebar */}
@@ -91,11 +95,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-border/40">
           <div className="flex items-center gap-3 px-2 py-2 mb-4">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-              {user?.firstName?.[0] || user?.emailAddresses[0]?.emailAddress?.[0]?.toUpperCase() || "U"}
+              {displayName[0]?.toUpperCase() || "U"}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.fullName || dbUser?.name || "User"}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.emailAddresses[0]?.emailAddress}</p>
+              <p className="text-sm font-medium truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
             </div>
           </div>
           <Button 
