@@ -33,15 +33,23 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
 export const getOrCreateUser = async (clerkId: string, email: string, name: string) => {
   const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
-  if (existing[0]) return existing[0];
+  if (existing[0]) {
+    const user = existing[0];
+    // Backfill email if it was previously empty
+    if (!user.email && email) {
+      await db.update(usersTable).set({ email, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+      user.email = email;
+    }
+    return user;
+  }
 
   const [newUser] = await db.insert(usersTable).values({
     clerkId,
     email,
     name: name || email.split("@")[0],
     plan: "free",
-    credits: 100,
-    maxCredits: 100,
+    credits: 50,
+    maxCredits: 50,
     dailyRefill: 20,
     maxInboxes: 1,
     status: "active",

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/react";
 import { useGetMe, useUpdateMe, getGetMeQueryKey, useGetCurrentSubscription } from "@workspace/api-client-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { BackButton } from "@/components/back-button";
@@ -20,6 +21,7 @@ export default function Settings() {
   const updateMe = useUpdateMe();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
+  const { user: clerkUser } = useUser();
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -27,6 +29,8 @@ export default function Settings() {
       setName(user.name);
     }
   }, [user?.name]);
+
+  const displayEmail = user?.email || clerkUser?.emailAddresses?.[0]?.emailAddress || "";
 
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
@@ -73,7 +77,7 @@ export default function Settings() {
               <>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={user?.email ?? ""} disabled className="font-mono opacity-70" />
+                  <Input value={displayEmail} disabled className="font-mono opacity-70" />
                   <p className="text-xs text-muted-foreground">Your email address cannot be changed here. Manage it through your Clerk account.</p>
                 </div>
                 <div className="space-y-2">

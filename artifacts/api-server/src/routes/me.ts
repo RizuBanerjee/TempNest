@@ -10,7 +10,7 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const auth = getAuth(req);
     const clerkId = auth!.userId!;
-    const email = (auth?.sessionClaims?.email as string) || "";
+    const email = (auth?.sessionClaims?.email as string) || (auth?.sessionClaims?.primaryEmail as string) || "";
     const name = (auth?.sessionClaims?.fullName as string) || (auth?.sessionClaims?.firstName as string) || "";
 
     const user = await getOrCreateUser(clerkId, email, name);

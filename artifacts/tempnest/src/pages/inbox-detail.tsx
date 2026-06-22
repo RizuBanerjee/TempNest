@@ -45,11 +45,20 @@ export default function InboxDetail({ params }: { params: { id: string } }) {
     }
   }
 
+  // Free auto-poll: just re-fetch cached list without charging credits
+  async function doPoll() {
+    try {
+      await queryClient.invalidateQueries({ queryKey: getListInboxEmailsQueryKey(id) });
+      await queryClient.invalidateQueries({ queryKey: getGetInboxQueryKey(id) });
+      setLastRefresh(new Date());
+    } catch {}
+  }
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          doRefresh(true);
+          doPoll();
           return 30;
         }
         return prev - 1;

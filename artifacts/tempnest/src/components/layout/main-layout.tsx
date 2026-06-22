@@ -13,13 +13,13 @@ import {
   ShieldAlert,
   Users
 } from "lucide-react";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { signOut } = useClerk();
   const { user, isLoaded, isSignedIn } = useUser();
-  const { data: dbUser } = useGetMe({ query: { enabled: !!user, queryKey: ["me"] } });
+  const { data: dbUser } = useGetMe({ query: { enabled: !!user, queryKey: getGetMeQueryKey() } });
 
   if (isLoaded && !isSignedIn) {
     setLocation("/");

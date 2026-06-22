@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetEmail, useMarkEmailRead, useExtractEmailOtp, getGetEmailQueryKey } from "@workspace/api-client-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { BackButton } from "@/components/back-button";
@@ -10,14 +10,59 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Copy, Check, Key, Mail, Clock, Shield } from "lucide-react";
 
+function processHtmlForDisplay(html: string): string {
+  // Add target="_blank" and rel="noopener noreferrer" to all links
+  // Ensure links are styled and clickable
+  let processed = html.replace(
+    /<a\s+([^>]*)href="([^"]*)"([^>]*)>/gi,
+    '<a $1href="$2"$3 target="_blank" rel="noopener noreferrer">'
+  );
+  // Add inline style to ensure text selection works
+  processed = processed.replace(
+    /<body/i,
+    '<body style="user-select:text;cursor:auto;"'
+  );
+  return processed;
+}
+
 export default function EmailDetail({ params }: { params: { id: string } }) {
   const id = params.id;
   const [otpCopied, setOtpCopied] = useState(false);
+  const [bodyHtml, setBodyHtml] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const { data: email, isLoading } = useGetEmail(id);
   const markRead = useMarkEmailRead();
   const extractOtp = useExtractEmailOtp(id);
+
+  // Lazily fetch full HTML body if only preview is available
+  useEffect(() => {
+    if (!email) return;
+    if (email.bodyHtml) {
+      setBodyHtml(processHtmlForDisplay(email.bodyHtml));
+      return;
+    }
+    // If only text available, use text display
+    if (!email.bodyHtml && email.bodyText) {
+      setBodyHtml(null);
+    }
+  }, [email?.id, email?.bodyHtml]);
+
+  // Post-process rendered HTML to ensure links are clickable
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    const links = bodyRef.current.querySelectorAll("a");
+    links.forEach((a) => {
+      if (!a.getAttribute("target")) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+      a.style.color = "hsl(260, 80%, 65%)";
+      a.style.textDecoration = "underline";
+      a.style.cursor = "pointer";
+    });
+  }, [bodyHtml, email?.bodyHtml]);
 
   useEffect(() => {
     if (email && !email.isRead) {
@@ -47,6 +92,8 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
   }
 
   const otp = email?.otpCode || (extractOtp.data?.found ? extractOtp.data.code : null);
+  const displayBody = bodyHtml || email?.bodyHtml || null;
+  const displayText = email?.bodyText || null;
 
   return (
     <MainLayout>
@@ -61,7 +108,7 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
             {isLoading ? (
               <Skeleton className="h-8 w-80 mb-2" />
             ) : (
-              <h1 className="text-xl font-semibold text-foreground">{email?.subject}</h1>
+              <h1 className="text-xl font-semibold text-foreground">{email?.subject || "(no subject)"}</h1>
             )}
           </div>
 
@@ -111,7 +158,7 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
                     <Mail size={14} className="text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{email?.from}</p>
+                    <p className="text-sm font-medium">{email?.from || "Unknown sender"}</p>
                     <p className="text-xs text-muted-foreground">Sender</p>
                   </div>
                 </div>
@@ -153,13 +200,15 @@ export default function EmailDetail({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <div className="rounded-xl border border-border/60 bg-card p-6">
-              {email?.bodyHtml ? (
+              {displayBody ? (
                 <div
-                  className="prose prose-sm dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
+                  ref={bodyRef}
+                  className="prose prose-sm dark:prose-invert max-w-none email-body"
+                  style={{ userSelect: "text", cursor: "auto" }}
+                  dangerouslySetInnerHTML={{ __html: displayBody }}
                 />
-              ) : email?.bodyText ? (
-                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">{email.bodyText}</pre>
+              ) : displayText ? (
+                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed" style={{ userSelect: "text" }}>{displayText}</pre>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Mail size={32} className="mx-auto mb-3 opacity-30" />

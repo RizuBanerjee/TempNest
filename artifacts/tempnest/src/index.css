@@ -127,3 +127,11 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Hide Clerk's "Development mode" badge across versions */
+[class*="cl-internal-"][class*="badge"],
+.cl-internal-1d5bpac,
+.cl-internal-b3fm6y,
+.cl-internal-1b3fm6y {
+  display: none !important;
+}
