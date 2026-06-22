@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, CreditCard, Shield, Bell, Palette, Crown } from "lucide-react";
+import { User, CreditCard, Shield, Bell, Palette } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { Link } from "wouter";
 
@@ -30,7 +30,6 @@ export default function Settings() {
     notifyWeeklySummary: false,
   });
   const [savingNotifications, setSavingNotifications] = useState(false);
-  const [claimingAdmin, setClaimingAdmin] = useState(false);
 
   useEffect(() => {
     if (user?.name && !name) {
@@ -282,43 +281,6 @@ export default function Settings() {
               </div>
             )}
           </Card>
-
-          {/* Admin Claim */}
-          {!user?.isAdmin && !isLoading && (
-            <Card className="p-6 bg-card border-border/60 space-y-4 border-amber-500/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Crown size={16} className="text-amber-400" />
-                <h2 className="font-semibold text-amber-400">Admin Access</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                If you are the owner (rizubanerjee456@gmail.com), click below to claim admin privileges. This unlocks the admin dashboard, unlimited credits, and unlimited inboxes.
-              </p>
-              <Button
-                variant="outline"
-                className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-                disabled={claimingAdmin}
-                onClick={async () => {
-                  setClaimingAdmin(true);
-                  try {
-                    const res = await fetch("/api/admin/claim", { method: "POST" });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                      toast.success("Admin privileges granted!");
-                      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-                    } else {
-                      toast.error(data.error || "Not authorized to claim admin");
-                    }
-                  } catch {
-                    toast.error("Failed to claim admin");
-                  } finally {
-                    setClaimingAdmin(false);
-                  }
-                }}
-              >
-                {claimingAdmin ? "Claiming..." : "Claim Admin"}
-              </Button>
-            </Card>
-          )}
 
         </div>
       </div>
