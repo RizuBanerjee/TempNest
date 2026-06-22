@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getDomains, createAccount, getToken, getMessages, generatePassword, generateUsername, extractOtp } from "../lib/mailtm";
+import { getDomains, createAccount, getToken, getMessages, getMessage, generatePassword, generateUsername, extractOtp } from "../lib/mailtm";
 
 const router = Router();
 
@@ -50,6 +50,37 @@ router.get("/temp-inbox/messages", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to get public temp inbox messages");
     res.json([]);
+  }
+});
+
+router.get("/temp-inbox/messages/:id", async (req, res) => {
+  try {
+    const token = req.query.token as string;
+    const messageId = req.params.id as string;
+    if (!token) { res.status(400).json({ error: "Token required" }); return; }
+    if (token.startsWith("local_")) { res.status(404).json({ error: "Not found" }); return; }
+
+    const msg = await getMessage(token, messageId);
+    if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+
+    const bodyText = msg.text || msg.intro || "";
+    const bodyHtml = msg.html?.[0] || null;
+    const otpCode = extractOtp(bodyText);
+
+    res.json({
+      id: msg.id,
+      from: msg.from.address,
+      subject: msg.subject || "(no subject)",
+      preview: msg.intro || bodyText.substring(0, 200),
+      bodyText,
+      bodyHtml,
+      hasOtp: !!otpCode,
+      otpCode: otpCode || null,
+      createdAt: msg.createdAt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get public temp inbox message");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

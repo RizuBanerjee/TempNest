@@ -17,7 +17,7 @@ router.post("/claim", requireAuth, async (req, res) => {
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
     if (!user[0]) { res.status(404).json({ error: "User not found" }); return; }
 
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = process.env.ADMIN_EMAIL || "rizubanerjee456@gmail.com";
     const [existingAdmin] = await db.select({ count: count() }).from(usersTable).where(eq(usersTable.isAdmin, true));
     const adminCount = Number(existingAdmin?.count || 0);
 

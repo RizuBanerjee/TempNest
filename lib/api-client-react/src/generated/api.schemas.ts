@@ -40,11 +40,22 @@ export interface UserProfile {
   maxInboxes?: number;
   status?: UserProfileStatus;
   isAdmin?: boolean;
+  notifyNewEmail?: boolean;
+  notifyOtp?: boolean;
+  notifyLowCredits?: boolean;
+  notifyWeeklySummary?: boolean;
   createdAt: string;
 }
 
 export interface UserProfileUpdate {
   name?: string;
+}
+
+export interface NotificationPreferences {
+  notifyNewEmail?: boolean;
+  notifyOtp?: boolean;
+  notifyLowCredits?: boolean;
+  notifyWeeklySummary?: boolean;
 }
 
 export interface Email {

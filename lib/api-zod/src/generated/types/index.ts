@@ -33,6 +33,7 @@ export * from './listAdminInboxesParams';
 export * from './listAdminUsersParams';
 export * from './markReadInput';
 export * from './monthlyRevenue';
+export * from './notificationPreferences';
 export * from './otpExtraction';
 export * from './otpRecord';
 export * from './plan';

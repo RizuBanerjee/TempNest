@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGetInbox, useListInboxEmails, useRefreshInbox, useDeleteInbox, getListInboxEmailsQueryKey, getGetInboxQueryKey, getListInboxesQueryKey } from "@workspace/api-client-react";
+import { useGetInbox, useListInboxEmails, useRefreshInbox, useDeleteInbox, useGetMe, getListInboxEmailsQueryKey, getGetInboxQueryKey, getListInboxesQueryKey } from "@workspace/api-client-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ export default function InboxDetail({ params }: { params: { id: string } }) {
   const [countdown, setCountdown] = useState(30);
   const queryClient = useQueryClient();
 
+  const { data: user } = useGetMe();
   const { data: inbox, isLoading: inboxLoading } = useGetInbox(id);
   const { data: emails, isLoading: emailsLoading } = useListInboxEmails(id);
   const refresh = useRefreshInbox();
@@ -128,6 +129,7 @@ export default function InboxDetail({ params }: { params: { id: string } }) {
                 <RefreshCw size={14} className={refresh.isPending ? "animate-spin" : ""} />
                 Refresh
               </Button>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{user?.isAdmin ? "Free" : "1 credit"}</span>
               <Button variant="ghost" size="sm" onClick={handleDelete} className="text-destructive hover:text-destructive gap-1.5">
                 <Trash2 size={14} />
               </Button>

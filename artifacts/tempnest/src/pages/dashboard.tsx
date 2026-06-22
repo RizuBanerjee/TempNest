@@ -7,18 +7,19 @@ import { Link } from "wouter";
 import { Mail, Inbox, Key, Zap, ArrowRight, TrendingUp } from "lucide-react";
 
 function CreditBar({ current, max }: { current: number; max: number }) {
-  const pct = max > 0 ? Math.min((current / max) * 100, 100) : 0;
-  const color = pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500";
+  const isUnlimited = max === -1;
+  const pct = isUnlimited ? 100 : (max > 0 ? Math.min((current / max) * 100, 100) : 0);
+  const color = isUnlimited ? "bg-emerald-500" : (pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500");
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground font-medium">Credits</span>
-        <span className="font-mono font-semibold">{current.toLocaleString()} <span className="text-muted-foreground font-normal">/ {max.toLocaleString()}</span></span>
+        <span className="font-mono font-semibold">{isUnlimited ? "Unlimited" : `${current.toLocaleString()} / ${max.toLocaleString()}`}</span>
       </div>
       <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-xs text-muted-foreground">{pct.toFixed(0)}% remaining</p>
+      <p className="text-xs text-muted-foreground">{isUnlimited ? "Admin · Unlimited usage" : `${pct.toFixed(0)}% remaining`}</p>
     </div>
   );
 }
@@ -40,8 +41,8 @@ export default function Dashboard() {
             {[
               {
                 label: "Credits Left",
-                value: isLoading ? null : summary?.credits,
-                sub: `/ ${summary?.maxCredits ?? "—"} max`,
+                value: isLoading ? null : (summary?.maxCredits === -1 ? "∞" : summary?.credits),
+                sub: summary?.maxCredits === -1 ? "unlimited" : `/ ${summary?.maxCredits ?? "—"} max`,
                 icon: Zap,
                 desc: "Used to create inboxes & refresh emails",
                 color: "text-amber-400",
@@ -49,7 +50,7 @@ export default function Dashboard() {
               {
                 label: "Active Inboxes",
                 value: isLoading ? null : summary?.inboxCount,
-                sub: `/ ${summary?.maxInboxes ?? "—"} limit`,
+                sub: summary?.maxInboxes === -1 ? "unlimited" : `/ ${summary?.maxInboxes ?? "—"} limit`,
                 icon: Inbox,
                 desc: "Temp email addresses currently active",
                 color: "text-violet-400",
@@ -92,7 +93,7 @@ export default function Dashboard() {
           {/* Credit Bar */}
           <Card className="p-5 bg-card border-border/60">
             {isLoading ? <Skeleton className="h-10 w-full" /> : (
-              <CreditBar current={summary?.credits ?? 0} max={summary?.maxCredits ?? 100} />
+              <CreditBar current={summary?.maxCredits === -1 ? 999999 : (summary?.credits ?? 0)} max={summary?.maxCredits ?? 100} />
             )}
           </Card>
 

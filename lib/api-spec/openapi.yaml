@@ -80,6 +80,27 @@ paths:
         "401":
           description: Unauthorized
 
+  /me/notifications:
+    patch:
+      operationId: updateMeNotifications
+      tags: [me]
+      summary: Update notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationPreferences"
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "401":
+          description: Unauthorized
+
   # ── Dashboard ────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -599,6 +620,14 @@ components:
           enum: [active, suspended, banned]
         isAdmin:
           type: boolean
+        notifyNewEmail:
+          type: boolean
+        notifyOtp:
+          type: boolean
+        notifyLowCredits:
+          type: boolean
+        notifyWeeklySummary:
+          type: boolean
         createdAt:
           type: string
 
@@ -607,6 +636,18 @@ components:
       properties:
         name:
           type: string
+
+    NotificationPreferences:
+      type: object
+      properties:
+        notifyNewEmail:
+          type: boolean
+        notifyOtp:
+          type: boolean
+        notifyLowCredits:
+          type: boolean
+        notifyWeeklySummary:
+          type: boolean
 
     # ── Dashboard ────────────────────────────────────────────────────
     DashboardSummary:

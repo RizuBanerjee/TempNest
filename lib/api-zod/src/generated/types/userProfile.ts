@@ -21,5 +21,9 @@ export interface UserProfile {
   maxInboxes?: number;
   status?: UserProfileStatus;
   isAdmin?: boolean;
+  notifyNewEmail?: boolean;
+  notifyOtp?: boolean;
+  notifyLowCredits?: boolean;
+  notifyWeeklySummary?: boolean;
   createdAt: string;
 }

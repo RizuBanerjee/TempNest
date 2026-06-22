@@ -51,17 +51,18 @@ router.post("/", requireAuth, async (req, res) => {
 
     const { customName, isPriority } = req.body;
 
+    const isAdmin = user.isAdmin;
     let creditCost = 2;
     if (customName) creditCost += 5;
     if (isPriority) creditCost += 10;
 
-    if (user.credits < creditCost) {
+    if (!isAdmin && user.credits < creditCost) {
       res.status(400).json({ error: "Insufficient credits", required: creditCost, available: user.credits }); return;
     }
 
     const [inboxCount] = await db.select({ count: count() }).from(inboxesTable)
       .where(and(eq(inboxesTable.userId, user.id), eq(inboxesTable.isActive, true)));
-    if (Number(inboxCount?.count || 0) >= user.maxInboxes) {
+    if (!isAdmin && Number(inboxCount?.count || 0) >= user.maxInboxes) {
       res.status(400).json({ error: "Inbox limit reached. Upgrade your plan for more inboxes." }); return;
     }
 
@@ -85,12 +86,14 @@ router.post("/", requireAuth, async (req, res) => {
       req.log.warn({ err }, "mail.tm account creation failed, using local fallback");
     }
 
-    const newCredits = user.credits - creditCost;
-    await db.update(usersTable).set({ credits: newCredits, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
-    await db.insert(creditTransactionsTable).values({
-      userId: user.id, type: "debit", amount: creditCost,
-      description: `Created inbox ${address}`, balanceAfter: newCredits,
-    });
+    if (!isAdmin) {
+      const newCredits = user.credits - creditCost;
+      await db.update(usersTable).set({ credits: newCredits, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+      await db.insert(creditTransactionsTable).values({
+        userId: user.id, type: "debit", amount: creditCost,
+        description: `Created inbox ${address}`, balanceAfter: newCredits,
+      });
+    }
 
     const [inbox] = await db.insert(inboxesTable).values({
       id: accountId, userId: user.id, address, domain, password,
@@ -169,18 +172,21 @@ router.post("/:inboxId/refresh", requireAuth, async (req, res) => {
     const auth = getAuth(req);
     const user = await getOrCreateUser(clerkId, (auth?.sessionClaims?.email as string) || "", "");
 
-    if (user.credits < 1) { res.status(400).json({ error: "Insufficient credits" }); return; }
+    const isAdmin = user.isAdmin;
+    if (!isAdmin && user.credits < 1) { res.status(400).json({ error: "Insufficient credits" }); return; }
 
     const [inbox] = await db.select().from(inboxesTable)
       .where(and(eq(inboxesTable.id, inboxId), eq(inboxesTable.userId, user.id)));
     if (!inbox) { res.status(404).json({ error: "Not found" }); return; }
 
-    const newCredits = user.credits - 1;
-    await db.update(usersTable).set({ credits: newCredits, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
-    await db.insert(creditTransactionsTable).values({
-      userId: user.id, type: "debit", amount: 1,
-      description: `Refreshed inbox ${inbox.address}`, balanceAfter: newCredits,
-    });
+    if (!isAdmin) {
+      const newCredits = user.credits - 1;
+      await db.update(usersTable).set({ credits: newCredits, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+      await db.insert(creditTransactionsTable).values({
+        userId: user.id, type: "debit", amount: 1,
+        description: `Refreshed inbox ${inbox.address}`, balanceAfter: newCredits,
+      });
+    }
 
     let token = inbox.mailtmToken;
     if (!token && !inbox.id.startsWith("local_")) {

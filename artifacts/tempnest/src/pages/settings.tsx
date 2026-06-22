@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, CreditCard, Shield, Bell, Palette, ShieldAlert } from "lucide-react";
+import { User, CreditCard, Shield, Bell, Palette } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { Link } from "wouter";
 
@@ -23,7 +23,13 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { user: clerkUser } = useUser();
   const [name, setName] = useState("");
-  const [claimingAdmin, setClaimingAdmin] = useState(false);
+  const [notifications, setNotifications] = useState({
+    notifyNewEmail: true,
+    notifyOtp: true,
+    notifyLowCredits: false,
+    notifyWeeklySummary: false,
+  });
+  const [savingNotifications, setSavingNotifications] = useState(false);
 
   useEffect(() => {
     if (user?.name && !name) {
@@ -33,22 +39,16 @@ export default function Settings() {
 
   const displayEmail = clerkUser?.emailAddresses?.[0]?.emailAddress || user?.email || "";
 
-  async function handleClaimAdmin() {
-    setClaimingAdmin(true);
-    try {
-      const res = await fetch("/api/admin/claim", { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed");
-      }
-      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      toast.success("Admin access granted! Reload the page to see admin menu.");
-    } catch (err: any) {
-      toast.error(err?.message || "Could not claim admin access");
-    } finally {
-      setClaimingAdmin(false);
+  useEffect(() => {
+    if (user) {
+      setNotifications({
+        notifyNewEmail: user.notifyNewEmail ?? true,
+        notifyOtp: user.notifyOtp ?? true,
+        notifyLowCredits: user.notifyLowCredits ?? false,
+        notifyWeeklySummary: user.notifyWeeklySummary ?? false,
+      });
     }
-  }
+  }, [user?.notifyNewEmail, user?.notifyOtp, user?.notifyLowCredits, user?.notifyWeeklySummary]);
 
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
@@ -64,6 +64,33 @@ export default function Settings() {
       toast.success("Profile updated");
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to update");
+    }
+  }
+
+  async function handleToggleNotification(key: keyof typeof notifications) {
+    setSavingNotifications(true);
+    const next = { ...notifications, [key]: !notifications[key] };
+    setNotifications(next);
+    try {
+      const res = await fetch("/api/me/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: next[key] }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setNotifications({
+        notifyNewEmail: data.notifyNewEmail,
+        notifyOtp: data.notifyOtp,
+        notifyLowCredits: data.notifyLowCredits,
+        notifyWeeklySummary: data.notifyWeeklySummary,
+      });
+      toast.success("Notification preference saved");
+    } catch {
+      toast.error("Failed to save preference");
+      setNotifications(notifications); // revert
+    } finally {
+      setSavingNotifications(false);
     }
   }
 
@@ -160,21 +187,21 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground">Credits</p>
                     <p className="text-xs text-muted-foreground/70 mt-0.5">Credits are used to create inboxes, refresh emails, and more.</p>
                   </div>
-                  <span className="font-mono text-sm">{user?.credits ?? 0} / {user?.maxCredits ?? 0}</span>
+                  <span className="font-mono text-sm">{user?.isAdmin ? "Unlimited" : `${user?.credits ?? 0} / ${user?.maxCredits ?? 0}`}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Daily Refill</p>
                     <p className="text-xs text-muted-foreground/70 mt-0.5">Credits added automatically each day.</p>
                   </div>
-                  <span className="font-mono text-sm">{user?.dailyRefill ?? 0} credits/day</span>
+                  <span className="font-mono text-sm">{user?.isAdmin ? "Unlimited" : `${user?.dailyRefill ?? 0} credits/day`}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Active Inboxes</p>
                     <p className="text-xs text-muted-foreground/70 mt-0.5">How many temp email addresses you can have at once.</p>
                   </div>
-                  <span className="font-mono text-sm">{user?.activeInboxCount ?? 0} / {user?.maxInboxes === -1 ? "∞" : (user?.maxInboxes ?? 1)}</span>
+                  <span className="font-mono text-sm">{user?.isAdmin ? "Unlimited" : `${user?.activeInboxCount ?? 0} / ${user?.maxInboxes === -1 ? "∞" : (user?.maxInboxes ?? 1)}`}</span>
                 </div>
                 {subscription && subscription.planId !== "free" && (
                   <div className="flex items-center justify-between pt-2 border-t border-border/40">
@@ -204,22 +231,25 @@ export default function Settings() {
             </div>
             <div className="space-y-3">
               {[
-                { label: "New email received", desc: "Get notified when a new email arrives in any inbox", enabled: true },
-                { label: "OTP detected", desc: "Alert when a verification code is found in an email", enabled: true },
-                { label: "Low credits warning", desc: "Notify when credits drop below 20% of your limit", enabled: false },
-                { label: "Weekly usage summary", desc: "Email digest of your TempNest activity each week", enabled: false },
+                { label: "New email received", desc: "Get notified when a new email arrives in any inbox", key: "notifyNewEmail" as const },
+                { label: "OTP detected", desc: "Alert when a verification code is found in an email", key: "notifyOtp" as const },
+                { label: "Low credits warning", desc: "Notify when credits drop below 20% of your limit", key: "notifyLowCredits" as const },
+                { label: "Weekly usage summary", desc: "Email digest of your TempNest activity each week", key: "notifyWeeklySummary" as const },
               ].map((item) => (
                 <div key={item.label} className="flex items-start justify-between gap-4 py-2 border-b border-border/20 last:border-0">
                   <div>
                     <p className="text-sm font-medium">{item.label}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                   </div>
-                  <div className={`mt-0.5 px-2 py-0.5 rounded text-xs font-medium ${item.enabled ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-                    {item.enabled ? "On" : "Off"}
-                  </div>
+                  <button
+                    onClick={() => handleToggleNotification(item.key)}
+                    disabled={savingNotifications}
+                    className={`mt-0.5 px-2.5 py-0.5 rounded text-xs font-medium transition-colors ${notifications[item.key] ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                  >
+                    {notifications[item.key] ? "On" : "Off"}
+                  </button>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground pt-1">Notification controls coming soon.</p>
             </div>
           </Card>
 
@@ -252,27 +282,6 @@ export default function Settings() {
             )}
           </Card>
 
-          {/* Admin Access */}
-          {!user?.isAdmin && (
-            <Card className="p-6 bg-card border-border/60 space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldAlert size={16} className="text-amber-400" />
-                <h2 className="font-semibold">Admin Access</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                If you are the platform owner, you can claim admin rights here. This only works if no admin exists yet.
-              </p>
-              <Button
-                variant="outline"
-                onClick={handleClaimAdmin}
-                disabled={claimingAdmin}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-              >
-                <ShieldAlert size={14} className="mr-2" />
-                {claimingAdmin ? "Claiming..." : "Claim Admin Access"}
-              </Button>
-            </Card>
-          )}
         </div>
       </div>
     </MainLayout>

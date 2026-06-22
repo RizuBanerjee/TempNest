@@ -40,6 +40,7 @@ import type {
   ListAdminInboxesParams,
   ListAdminUsersParams,
   MarkReadInput,
+  NotificationPreferences,
   OtpExtraction,
   OtpRecord,
   Plan,
@@ -284,6 +285,77 @@ export const useUpdateMe = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateMeMutationOptions(options));
+    }
+
+export const getUpdateMeNotificationsUrl = () => {
+
+
+
+
+  return `/api/me/notifications`
+}
+
+/**
+ * @summary Update notification preferences
+ */
+export const updateMeNotifications = async (notificationPreferences: NotificationPreferences, options?: RequestInit): Promise<NotificationPreferences> => {
+
+  return customFetch<NotificationPreferences>(getUpdateMeNotificationsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      notificationPreferences,)
+  }
+);}
+
+
+
+
+export const getUpdateMeNotificationsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeNotifications>>, TError,{data: BodyType<NotificationPreferences>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMeNotifications>>, TError,{data: BodyType<NotificationPreferences>}, TContext> => {
+
+const mutationKey = ['updateMeNotifications'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMeNotifications>>, {data: BodyType<NotificationPreferences>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateMeNotifications(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMeNotificationsMutationResult = NonNullable<Awaited<ReturnType<typeof updateMeNotifications>>>
+    export type UpdateMeNotificationsMutationBody = BodyType<NotificationPreferences>
+    export type UpdateMeNotificationsMutationError = ErrorType<void>
+
+    /**
+ * @summary Update notification preferences
+ */
+export const useUpdateMeNotifications = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeNotifications>>, TError,{data: BodyType<NotificationPreferences>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMeNotifications>>,
+        TError,
+        {data: BodyType<NotificationPreferences>},
+        TContext
+      > => {
+      return useMutation(getUpdateMeNotificationsMutationOptions(options));
     }
 
 export const getGetDashboardSummaryUrl = () => {

@@ -39,6 +39,10 @@ export const getOrCreateUser = async (clerkId: string, email: string, name: stri
       await db.update(usersTable).set({ email, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
       user.email = email;
     }
+    // Admin override: unlimited everything
+    if (user.isAdmin) {
+      return { ...user, maxInboxes: -1, maxCredits: 999999, credits: 999999, dailyRefill: 999999 };
+    }
     return user;
   }
 

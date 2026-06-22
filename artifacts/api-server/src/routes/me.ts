@@ -56,6 +56,10 @@ router.get("/", requireAuth, async (req, res) => {
       maxInboxes: user.maxInboxes,
       status: user.status,
       isAdmin: user.isAdmin,
+      notifyNewEmail: user.notifyNewEmail,
+      notifyOtp: user.notifyOtp,
+      notifyLowCredits: user.notifyLowCredits,
+      notifyWeeklySummary: user.notifyWeeklySummary,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (err) {
@@ -89,10 +93,44 @@ router.patch("/", requireAuth, async (req, res) => {
       maxInboxes: user.maxInboxes,
       status: user.status,
       isAdmin: user.isAdmin,
+      notifyNewEmail: user.notifyNewEmail,
+      notifyOtp: user.notifyOtp,
+      notifyLowCredits: user.notifyLowCredits,
+      notifyWeeklySummary: user.notifyWeeklySummary,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (err) {
     req.log.error({ err }, "Failed to update user");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/notifications", requireAuth, async (req, res) => {
+  try {
+    const clerkId = (req as any).clerkId;
+    const { notifyNewEmail, notifyOtp, notifyLowCredits, notifyWeeklySummary } = req.body;
+
+    const updates: Partial<typeof usersTable.$inferInsert> = { updatedAt: new Date() };
+    if (typeof notifyNewEmail === "boolean") updates.notifyNewEmail = notifyNewEmail;
+    if (typeof notifyOtp === "boolean") updates.notifyOtp = notifyOtp;
+    if (typeof notifyLowCredits === "boolean") updates.notifyLowCredits = notifyLowCredits;
+    if (typeof notifyWeeklySummary === "boolean") updates.notifyWeeklySummary = notifyWeeklySummary;
+
+    const [user] = await db.update(usersTable)
+      .set(updates)
+      .where(eq(usersTable.clerkId, clerkId))
+      .returning();
+
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+    res.json({
+      notifyNewEmail: user.notifyNewEmail,
+      notifyOtp: user.notifyOtp,
+      notifyLowCredits: user.notifyLowCredits,
+      notifyWeeklySummary: user.notifyWeeklySummary,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to update notifications");
     res.status(500).json({ error: "Internal server error" });
   }
 });

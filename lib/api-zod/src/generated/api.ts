@@ -32,6 +32,10 @@ export const GetMeResponse = zod.object({
   "maxInboxes": zod.number().optional(),
   "status": zod.enum(['active', 'suspended', 'banned']).optional(),
   "isAdmin": zod.boolean().optional(),
+  "notifyNewEmail": zod.boolean().optional(),
+  "notifyOtp": zod.boolean().optional(),
+  "notifyLowCredits": zod.boolean().optional(),
+  "notifyWeeklySummary": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -56,7 +60,29 @@ export const UpdateMeResponse = zod.object({
   "maxInboxes": zod.number().optional(),
   "status": zod.enum(['active', 'suspended', 'banned']).optional(),
   "isAdmin": zod.boolean().optional(),
+  "notifyNewEmail": zod.boolean().optional(),
+  "notifyOtp": zod.boolean().optional(),
+  "notifyLowCredits": zod.boolean().optional(),
+  "notifyWeeklySummary": zod.boolean().optional(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update notification preferences
+ */
+export const UpdateMeNotificationsBody = zod.object({
+  "notifyNewEmail": zod.boolean().optional(),
+  "notifyOtp": zod.boolean().optional(),
+  "notifyLowCredits": zod.boolean().optional(),
+  "notifyWeeklySummary": zod.boolean().optional()
+})
+
+export const UpdateMeNotificationsResponse = zod.object({
+  "notifyNewEmail": zod.boolean().optional(),
+  "notifyOtp": zod.boolean().optional(),
+  "notifyLowCredits": zod.boolean().optional(),
+  "notifyWeeklySummary": zod.boolean().optional()
 })
 
 

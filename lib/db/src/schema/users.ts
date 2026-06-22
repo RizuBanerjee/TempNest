@@ -18,6 +18,10 @@ export const usersTable = pgTable("users", {
   status: userStatusEnum("status").notNull().default("active"),
   isAdmin: boolean("is_admin").notNull().default(false),
   lastRefillAt: timestamp("last_refill_at"),
+  notifyNewEmail: boolean("notify_new_email").notNull().default(true),
+  notifyOtp: boolean("notify_otp").notNull().default(true),
+  notifyLowCredits: boolean("notify_low_credits").notNull().default(false),
+  notifyWeeklySummary: boolean("notify_weekly_summary").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

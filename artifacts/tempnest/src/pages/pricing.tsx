@@ -1,10 +1,11 @@
 import { useListPlans, useCreateCheckoutSession } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 import { Logo } from "@/components/logo";
+import { BackButton } from "@/components/back-button";
 
 const PLANS = [
   {
@@ -52,7 +53,10 @@ export default function Pricing() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <header className="h-16 border-b border-border/40 flex items-center px-6 justify-between">
-        <Logo />
+        <div className="flex items-center gap-3">
+          <BackButton />
+          <Logo />
+        </div>
         <div className="flex gap-3">
           <Link href="/sign-in">
             <Button variant="ghost" size="sm">Sign In</Button>

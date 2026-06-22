@@ -3,7 +3,7 @@ import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Shield, Zap, Mail, Key, Copy, Check, RefreshCw, Trash2, Clock, ArrowRight, Lock, Globe } from "lucide-react";
+import { Shield, Zap, Mail, Key, Copy, Check, RefreshCw, Trash2, Clock, ArrowRight, Lock, Globe, X, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -23,6 +23,8 @@ interface TempEmail {
   hasOtp: boolean;
   otpCode: string | null;
   createdAt: string;
+  bodyText?: string;
+  bodyHtml?: string | null;
 }
 
 function TryItSection() {
@@ -32,6 +34,10 @@ function TryItSection() {
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [selectedEmail, setSelectedEmail] = useState<TempEmail | null>(null);
+  const [emailDetailLoading, setEmailDetailLoading] = useState(false);
+  const [iframeHeight, setIframeHeight] = useState(400);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function generateInbox() {
@@ -96,6 +102,57 @@ function TryItSection() {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setInbox(null);
     setEmails([]);
+    setSelectedEmail(null);
+  }
+
+  async function openEmailDetail(email: TempEmail) {
+    if (!inbox?.token) return;
+    setSelectedEmail(email);
+    setEmailDetailLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/public/temp-inbox/messages/${email.id}?token=${encodeURIComponent(inbox.token)}`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setSelectedEmail({ ...email, bodyText: data.bodyText, bodyHtml: data.bodyHtml });
+    } catch {
+      toast.error("Could not load email details");
+    } finally {
+      setEmailDetailLoading(false);
+    }
+  }
+
+  function handleIframeLoad() {
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (doc) {
+        const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 200);
+        setIframeHeight(height + 32);
+      }
+    } catch (_) {}
+  }
+
+  function buildIframeContent(html: string): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_blank">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; line-height: 1.6; color: #1a1a1a; background: #ffffff;
+    margin: 0; padding: 16px; user-select: text; cursor: auto; overflow-x: hidden;
+  }
+  img { max-width: 100%; height: auto; }
+  a { color: #7c3aed; text-decoration: underline; cursor: pointer; }
+  a:hover { color: #6d28d9; }
+  table { max-width: 100% !important; width: 100% !important; }
+</style>
+</head>
+<body>${html}</body>
+</html>`;
   }
 
   useEffect(() => {
@@ -184,6 +241,7 @@ function TryItSection() {
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
+                    onClick={() => openEmailDetail(email)}
                     className="grid grid-cols-12 gap-2 px-4 py-3.5 border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors cursor-pointer"
                   >
                     <div className="col-span-4 flex items-center gap-2 min-w-0">
@@ -218,6 +276,108 @@ function TryItSection() {
           </div>
         </div>
       </div>
+
+      {/* Email Detail Modal */}
+      <AnimatePresence>
+        {selectedEmail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+            onClick={() => setSelectedEmail(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="bg-card border border-border rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-card/95 backdrop-blur border-b border-border/40 px-6 py-4 flex items-center justify-between z-10">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">{selectedEmail.subject}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">From {selectedEmail.from}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedEmail(null)}
+                  className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors shrink-0"
+                >
+                  <X size={16} className="text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* OTP Banner */}
+                {selectedEmail.hasOtp && selectedEmail.otpCode && (
+                  <div className="rounded-xl border border-primary/40 bg-primary/5 p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <Key size={18} className="text-primary" />
+                      </div>
+                      <div>
+                        <Badge className="bg-primary/20 text-primary border-primary/30 text-xs mb-1">OTP DETECTED</Badge>
+                        <span className="font-mono text-2xl font-bold tracking-[0.15em] text-foreground block">{selectedEmail.otpCode}</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedEmail.otpCode!);
+                        toast.success("OTP copied!");
+                      }}
+                      className="gap-1.5 shrink-0"
+                    >
+                      <Copy size={13} /> Copy
+                    </Button>
+                  </div>
+                )}
+
+                {/* Email Body */}
+                <div className="rounded-xl border border-border/60 bg-white overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/30">
+                    <span className="text-xs text-muted-foreground font-medium">Message</span>
+                    <span className="text-xs text-muted-foreground">{new Date(selectedEmail.createdAt).toLocaleString()}</span>
+                  </div>
+
+                  {emailDetailLoading ? (
+                    <div className="p-6 space-y-2">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-4 bg-muted/50 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+                      ))}
+                    </div>
+                  ) : selectedEmail.bodyHtml ? (
+                    <iframe
+                      ref={iframeRef}
+                      srcDoc={buildIframeContent(selectedEmail.bodyHtml)}
+                      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                      onLoad={handleIframeLoad}
+                      style={{ width: "100%", height: `${iframeHeight}px`, border: "none", display: "block" }}
+                      title="Email content"
+                    />
+                  ) : selectedEmail.bodyText ? (
+                    <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed p-6">
+                      {selectedEmail.bodyText}
+                    </pre>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Mail size={32} className="mx-auto mb-3 opacity-30" />
+                      <p className="text-sm italic">This email has no readable content.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ShieldCheck size={12} className="text-emerald-400" />
+                  <span>Received securely via TempNest</span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
