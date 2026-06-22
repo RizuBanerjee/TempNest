@@ -2,32 +2,48 @@ import { Router } from "express";
 import { db, usersTable, inboxesTable, emailsTable, paymentsTable, creditTransactionsTable } from "@workspace/db";
 import { eq, ilike, or, count, desc, gte } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 
 const router = Router();
 
 // Claim admin — grants admin to the calling user if no admin exists yet
-// or if ADMIN_EMAIL env var matches their email
+// or if ADMIN_EMAIL env var matches their verified Clerk email
 router.post("/claim", requireAuth, async (req, res) => {
   try {
     const clerkId = (req as any).clerkId as string;
     const auth = getAuth(req);
-    const email = (auth?.sessionClaims?.email as string) || "";
 
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
     if (!user[0]) { res.status(404).json({ error: "User not found" }); return; }
+
+    // Fetch real email from Clerk API since sessionClaims may not include it
+    let clerkEmail = "";
+    try {
+      const clerkUser = await clerkClient.users.getUser(clerkId);
+      clerkEmail = clerkUser?.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+        || clerkUser?.emailAddresses?.[0]?.emailAddress
+        || "";
+    } catch (e) {
+      req.log.warn({ err: e }, "Could not fetch Clerk user email");
+    }
 
     const adminEmail = process.env.ADMIN_EMAIL || "rizubanerjee456@gmail.com";
     const [existingAdmin] = await db.select({ count: count() }).from(usersTable).where(eq(usersTable.isAdmin, true));
     const adminCount = Number(existingAdmin?.count || 0);
 
-    const canClaim = adminCount === 0 || (adminEmail && adminEmail === email);
+    const canClaim = adminCount === 0 || (adminEmail && adminEmail === clerkEmail);
     if (!canClaim) {
       res.status(403).json({ error: "Admin already exists or you are not authorized" }); return;
     }
 
+    // Also update the user's email in DB if we got a real one from Clerk
+    const updates: any = { isAdmin: true, updatedAt: new Date() };
+    if (clerkEmail && user[0].email.includes("@noemail.tempnest.internal")) {
+      updates.email = clerkEmail;
+    }
+
     const [updated] = await db.update(usersTable)
-      .set({ isAdmin: true, updatedAt: new Date() })
+      .set(updates)
       .where(eq(usersTable.clerkId, clerkId))
       .returning();
 

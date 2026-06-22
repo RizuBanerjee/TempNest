@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { db, usersTable, creditTransactionsTable, inboxesTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
@@ -10,10 +10,28 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const auth = getAuth(req);
     const clerkId = auth!.userId!;
-    const email = (auth?.sessionClaims?.email as string) || (auth?.sessionClaims?.primaryEmail as string) || "";
+    let email = (auth?.sessionClaims?.email as string) || (auth?.sessionClaims?.primaryEmail as string) || "";
     const name = (auth?.sessionClaims?.fullName as string) || (auth?.sessionClaims?.firstName as string) || "";
 
+    // If sessionClaims doesn't have email, try fetching from Clerk API
+    if (!email) {
+      try {
+        const clerkUser = await clerkClient.users.getUser(clerkId);
+        email = clerkUser?.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+          || clerkUser?.emailAddresses?.[0]?.emailAddress
+          || "";
+      } catch (e) {
+        req.log.warn({ err: e }, "Could not fetch Clerk user email");
+      }
+    }
+
     const user = await getOrCreateUser(clerkId, email, name);
+
+    // If the DB email is a placeholder and we now have a real one, update it
+    if (email && user.email.includes("@noemail.tempnest.internal") && email !== user.email) {
+      await db.update(usersTable).set({ email, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+      user.email = email;
+    }
 
     // Daily credit refill logic:
     // - Use lastRefillAt if set; fall back to createdAt for existing users without it.
